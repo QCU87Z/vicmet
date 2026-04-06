@@ -12,7 +12,7 @@ global:
 scrape_configs:
   - job_name: "vmstorage"
     static_configs:
-      - targets: ["vmstorage:8482"]
+      - targets: ["vmstorage:8482", "vmstorage2:8482"]
         labels:
           component: "vmstorage"
     relabel_configs:

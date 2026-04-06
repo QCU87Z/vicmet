@@ -17,7 +17,26 @@ services:
       - vmstorage-data:/storage
     command:
       - "--storageDataPath=/storage"
-      - "--retentionPeriod=1"          # 1 month; adjust as needed
+      - "--retentionPeriod=1"
+      - "--httpListenAddr=:8482"
+      - "--vminsertAddr=:8400"
+      - "--vmselectAddr=:8401"
+
+  vmstorage2:
+    image: victoriametrics/vmstorage:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8492:8482"   # HTTP / web UI  → http://localhost:8492
+    expose:
+      - "8400"   # vminsert port (internal only)
+      - "8401"   # vmselect port (internal only)
+    volumes:
+      - vmstorage2-data:/storage
+    command:
+      - "--storageDataPath=/storage"
+      - "--retentionPeriod=1"
       - "--httpListenAddr=:8482"
       - "--vminsertAddr=:8400"
       - "--vmselectAddr=:8401"
@@ -34,9 +53,11 @@ services:
       - "8485:8480"   # web UI / status → http://localhost:8485
     command:
       - "--storageNode=vmstorage:8400"
+      - "--storageNode=vmstorage2:8400"
       - "--httpListenAddr=:8480"
     depends_on:
       - vmstorage
+      - vmstorage2
 
   # ──────────────────────────────────────────────────────────────────────────
   # Select / query layer  (no direct auth — sits behind vmauth-read)
@@ -50,9 +71,11 @@ services:
       - "8486:8481"   # VMUI + query API → http://localhost:8486/vmui
     command:
       - "--storageNode=vmstorage:8401"
+      - "--storageNode=vmstorage2:8401"
       - "--httpListenAddr=:8481"
     depends_on:
       - vmstorage
+      - vmstorage2
 
   # ──────────────────────────────────────────────────────────────────────────
   # Auth proxy — WRITE path
@@ -142,5 +165,6 @@ networks:
 
 volumes:
   vmstorage-data:
+  vmstorage2-data:
   vmagent-data:
   grafana-data:

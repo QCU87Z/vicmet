@@ -39,6 +39,8 @@ A Docker Compose deployment of a Victoria Metrics cluster with multi-tenancy, pe
                          └──────────────────────────────────────────────────┘
 ```
 
+![diagram](docs/VicMet.excalidraw.png "Victoria Metrics Componenets")
+
 ---
 
 ## Services

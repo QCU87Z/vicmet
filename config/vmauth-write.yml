@@ -1,0 +1,15 @@
+users:
+  # tenant1 writes go to accountID=1
+  - username: "tenant1"
+    password: "secret1"
+    url_prefix: "http://vminsert:8480/insert/1/prometheus"
+
+  # tenant2 writes go to accountID=2
+  - username: "tenant2"
+    password: "secret2"
+    url_prefix: "http://vminsert:8480/insert/2/prometheus"
+
+  # vmagent writes cluster component metrics to the common tenant (accountID=0)
+  - username: "vmagent"
+    password: "agentsecret"
+    url_prefix: "http://vminsert:8480/insert/0/prometheus"

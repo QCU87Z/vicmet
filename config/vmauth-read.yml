@@ -1,0 +1,15 @@
+users:
+  # tenant1 reads from accountID=1
+  - username: "tenant1"
+    password: "secret1"
+    url_prefix: "http://vmselect:8481/select/1/prometheus"
+
+  # tenant2 reads from accountID=2
+  - username: "tenant2"
+    password: "secret2"
+    url_prefix: "http://vmselect:8481/select/2/prometheus"
+
+  # admin reads from the common tenant (accountID=0) — cluster component metrics
+  - username: "admin"
+    password: "adminsecret"
+    url_prefix: "http://vmselect:8481/select/0/prometheus"

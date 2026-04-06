@@ -8,30 +8,30 @@ A Docker Compose deployment of a Victoria Metrics cluster with multi-tenancy, pe
 
 ```
                          ┌──────────────────────────────────────────────────┐
-                         │               Docker Network: vm-cluster          │
-                         │                                                   │
-                         │   ┌─────────────┐       ┌─────────────┐         │
-  Write clients  ───────►│   │ vmauth-write│──────►│  vminsert   │         │
-  :8480 (host)           │   │  :8427      │       │  :8480      │         │
-                         │   └─────────────┘       └──────┬──────┘         │
-                         │                                 │                 │
-                         │                         ┌───────▼──────┐         │
-                         │                         │  vmstorage   │         │
-                         │                         │  :8482 (HTTP)│         │
-                         │                         │  :8400 (ins) │         │
-                         │                         │  :8401 (sel) │         │
-                         │                         └───────┬──────┘         │
-                         │                                 │                 │
-                         │   ┌─────────────┐       ┌──────▼──────┐         │
-  Read clients   ───────►│   │ vmauth-read │──────►│  vmselect   │         │
-  :8481 (host)           │   │  :8427      │       │  :8481      │         │
-                         │   └─────────────┘       └─────────────┘         │
-                         │                                                   │
+                         │               Docker Network: vm-cluster         │
+                         │                                                  │
+                         │   ┌─────────────┐       ┌─────────────┐          │
+  Write clients  ───────►│   │ vmauth-write│──────►│  vminsert   │          │
+  :8480 (host)           │   │  :8427      │       │  :8480      │          │
+                         │   └─────────────┘       └──────┬──────┘          │
+                         │                                │                 │
+                         │                        ┌───────▼──────┐          │
+                         │                        │  vmstorage   │          │
+                         │                        │  :8482 (HTTP)│          │
+                         │                        │  :8400 (ins) │          │
+                         │                        │  :8401 (sel) │          │
+                         │                        └───────┬──────┘          │
+                         │                                │                 │
+                         │   ┌─────────────┐       ┌──────▼──────┐          │
+  Read clients   ───────►│   │ vmauth-read │──────►│  vmselect   │          │
+  :8481 (host)           │   │  :8427      │       │  :8481      │          │
+                         │   └─────────────┘       └─────────────┘          │
+                         │                                                  │
                          │   ┌─────────────┐                                │
-                         │   │   vmagent   │── scrapes /metrics ──► all    │
+                         │   │   vmagent   │── scrapes /metrics ──► all     │
                          │   │  :8429      │── remote_write ──► vmauth-write│
-                         │   └─────────────┘   (common tenant, acctID=0)   │
-                         │                                                   │
+                         │   └─────────────┘   (common tenant, acctID=0)    │
+                         │                                                  │
                          │   ┌─────────────┐                                │
                          │   │   Grafana   │── queries ──► vmauth-read      │
                          │   │  :3000      │                                │

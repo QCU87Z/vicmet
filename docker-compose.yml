@@ -1,0 +1,146 @@
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Storage layer
+  # ──────────────────────────────────────────────────────────────────────────
+  vmstorage:
+    image: victoriametrics/vmstorage:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8482:8482"   # HTTP / web UI  → http://localhost:8482
+    expose:
+      - "8400"   # vminsert port (internal only)
+      - "8401"   # vmselect port (internal only)
+    volumes:
+      - vmstorage-data:/storage
+    command:
+      - "--storageDataPath=/storage"
+      - "--retentionPeriod=1"          # 1 month; adjust as needed
+      - "--httpListenAddr=:8482"
+      - "--vminsertAddr=:8400"
+      - "--vmselectAddr=:8401"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Insert layer  (no direct auth — sits behind vmauth-write)
+  # ──────────────────────────────────────────────────────────────────────────
+  vminsert:
+    image: victoriametrics/vminsert:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8485:8480"   # web UI / status → http://localhost:8485
+    command:
+      - "--storageNode=vmstorage:8400"
+      - "--httpListenAddr=:8480"
+    depends_on:
+      - vmstorage
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Select / query layer  (no direct auth — sits behind vmauth-read)
+  # ──────────────────────────────────────────────────────────────────────────
+  vmselect:
+    image: victoriametrics/vmselect:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8486:8481"   # VMUI + query API → http://localhost:8486/vmui
+    command:
+      - "--storageNode=vmstorage:8401"
+      - "--httpListenAddr=:8481"
+    depends_on:
+      - vmstorage
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Auth proxy — WRITE path
+  # Basic-auth → routes each user to their tenant's vminsert URL prefix
+  # ──────────────────────────────────────────────────────────────────────────
+  vmauth-write:
+    image: victoriametrics/vmauth:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8480:8427"   # authenticated write endpoint → http://localhost:8480
+    volumes:
+      - ./config/vmauth-write.yml:/etc/vmauth/config.yml:ro
+    command:
+      - "--auth.config=/etc/vmauth/config.yml"
+      - "--httpListenAddr=:8427"
+    depends_on:
+      - vminsert
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Auth proxy — READ path
+  # Basic-auth → routes each user to their tenant's vmselect URL prefix
+  # ──────────────────────────────────────────────────────────────────────────
+  vmauth-read:
+    image: victoriametrics/vmauth:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8481:8427"   # authenticated read/query endpoint → http://localhost:8481
+    volumes:
+      - ./config/vmauth-read.yml:/etc/vmauth/config.yml:ro
+    command:
+      - "--auth.config=/etc/vmauth/config.yml"
+      - "--httpListenAddr=:8427"
+    depends_on:
+      - vmselect
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # vmagent — scrapes /metrics from every cluster component and ships them
+  #            to the common tenant (accountID=0) via vmauth-write
+  # ──────────────────────────────────────────────────────────────────────────
+  vmagent:
+    image: victoriametrics/vmagent:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8429:8429"   # vmagent web UI / targets → http://localhost:8429
+    volumes:
+      - ./config/vmagent.yml:/etc/vmagent/config.yml:ro
+      - vmagent-data:/vmagentdata
+    command:
+      - "--promscrape.config=/etc/vmagent/config.yml"
+      - "--httpListenAddr=:8429"
+      - "--remoteWrite.tmpDataPath=/vmagentdata"
+      - "--remoteWrite.url=http://vmauth-write:8427/api/v1/write"
+      - "--remoteWrite.basicAuth.username=vmagent"
+      - "--remoteWrite.basicAuth.password=agentsecret"
+    depends_on:
+      - vmauth-write
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Grafana — pre-configured with one datasource per tenant
+  # ──────────────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "3000:3000"   # Grafana UI → http://localhost:3000  (admin / admin)
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - vmauth-read
+
+networks:
+  vm-cluster:
+    driver: bridge
+
+volumes:
+  vmstorage-data:
+  vmagent-data:
+  grafana-data:

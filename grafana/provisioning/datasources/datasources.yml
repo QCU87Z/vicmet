@@ -1,0 +1,44 @@
+apiVersion: 1
+
+datasources:
+  # Common tenant (accountID=0) — cluster component self-metrics, set as default
+  - name: "VictoriaMetrics - Common"
+    type: prometheus
+    access: proxy
+    url: "http://vmauth-read:8427"
+    isDefault: true
+    basicAuth: true
+    basicAuthUser: "admin"
+    secureJsonData:
+      basicAuthPassword: "adminsecret"
+    jsonData:
+      httpMethod: POST
+      timeInterval: "15s"
+
+  # Tenant 1 (accountID=1)
+  - name: "VictoriaMetrics - Tenant1"
+    type: prometheus
+    access: proxy
+    url: "http://vmauth-read:8427"
+    isDefault: false
+    basicAuth: true
+    basicAuthUser: "tenant1"
+    secureJsonData:
+      basicAuthPassword: "secret1"
+    jsonData:
+      httpMethod: POST
+      timeInterval: "15s"
+
+  # Tenant 2 (accountID=2)
+  - name: "VictoriaMetrics - Tenant2"
+    type: prometheus
+    access: proxy
+    url: "http://vmauth-read:8427"
+    isDefault: false
+    basicAuth: true
+    basicAuthUser: "tenant2"
+    secureJsonData:
+      basicAuthPassword: "secret2"
+    jsonData:
+      httpMethod: POST
+      timeInterval: "15s"

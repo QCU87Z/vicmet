@@ -110,9 +110,9 @@ services:
       - "--promscrape.config=/etc/vmagent/config.yml"
       - "--httpListenAddr=:8429"
       - "--remoteWrite.tmpDataPath=/vmagentdata"
-      - "--remoteWrite.url=http://vmauth-write:8427/api/v1/write"
-      - "--remoteWrite.basicAuth.username=vmagent"
-      - "--remoteWrite.basicAuth.password=agentsecret"
+      # vmagent writes directly to vminsert's multitenant endpoint.
+      # Tenant routing is done via the __vm_account_id label set per scrape job.
+      - "--remoteWrite.url=http://vminsert:8480/insert/multitenant/prometheus/api/v1/write"
     depends_on:
       - vmauth-write
 

@@ -2,39 +2,74 @@ global:
   scrape_interval: 15s
   scrape_timeout: 10s
 
+# All jobs write to vminsert's multitenant endpoint.
+# Each job sets __vm_account_id via relabel_configs to control which tenant
+# the metrics land in. vmagent strips this label before storage.
+#
+#   accountID=0  →  common tenant  (cluster component self-metrics)
+#   accountID=1  →  tenant1        (node-exporter / host metrics)
+
 scrape_configs:
   - job_name: "vmstorage"
     static_configs:
       - targets: ["vmstorage:8482"]
         labels:
           component: "vmstorage"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
 
   - job_name: "vminsert"
     static_configs:
       - targets: ["vminsert:8480"]
         labels:
           component: "vminsert"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
 
   - job_name: "vmselect"
     static_configs:
       - targets: ["vmselect:8481"]
         labels:
           component: "vmselect"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
 
   - job_name: "vmauth-write"
     static_configs:
       - targets: ["vmauth-write:8427"]
         labels:
           component: "vmauth-write"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
 
   - job_name: "vmauth-read"
     static_configs:
       - targets: ["vmauth-read:8427"]
         labels:
           component: "vmauth-read"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
 
   - job_name: "vmagent"
     static_configs:
       - targets: ["vmagent:8429"]
         labels:
           component: "vmagent"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
+
+  # node_exporter running on the host machine → tenant1 (accountID=1)
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["host.docker.internal:9100"]
+        labels:
+          instance: "local-desktop"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "1"

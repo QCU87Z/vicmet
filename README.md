@@ -210,8 +210,18 @@ These are internal service UIs exposed directly for operational convenience. The
 |-----|---------|
 | http://localhost:8482 | vmstorage — storage stats, retention info |
 | http://localhost:8485 | vminsert — active connections, ingestion rate |
-| http://localhost:8486/vmui | vmselect — interactive query UI (VMUI) |
+| http://localhost:8486/vmui | vmselect — VMUI (defaults to no tenant scope) |
 | http://localhost:8429 | vmagent — scrape targets, WAL stats, config |
+
+### VMUI per tenant
+
+VMUI is served by vmselect on port `8486`. Navigating to a tenant-scoped path queries only that tenant's data — no authentication is required as vmselect is exposed directly (bypassing vmauth-read).
+
+| Tenant | VMUI URL |
+|--------|----------|
+| tenant1 | http://localhost:8486/select/1/prometheus/vmui |
+| tenant2 | http://localhost:8486/select/2/prometheus/vmui |
+| common (cluster metrics, accountID=0) | http://localhost:8486/select/0/prometheus/vmui |
 
 ---
 

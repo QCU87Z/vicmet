@@ -49,9 +49,10 @@ A Docker Compose deployment of a Victoria Metrics cluster with multi-tenancy, pe
 |---------|-------|-----------|----------------|------|
 | `vmauth-write` | victoriametrics/vmauth | **8480** | 8427 | Authenticated write gateway |
 | `vmauth-read` | victoriametrics/vmauth | **8481** | 8427 | Authenticated read gateway |
-| `vminsert` | victoriametrics/vminsert | 8485 | 8480 | Ingest / fan-out to storage |
-| `vmselect` | victoriametrics/vmselect | 8486 | 8481 | Query / merge from storage |
-| `vmstorage` | victoriametrics/vmstorage | 8482 | 8482, 8400, 8401 | Persistent time-series storage |
+| `vminsert` | victoriametrics/vminsert | 8485 | 8480 | Ingest / fan-out to storage nodes |
+| `vmselect` | victoriametrics/vmselect | 8486 | 8481 | Query / merge from storage nodes |
+| `vmstorage` | victoriametrics/vmstorage | 8482 | 8482, 8400, 8401 | Storage node 1 |
+| `vmstorage2` | victoriametrics/vmstorage | 8492 | 8482, 8400, 8401 | Storage node 2 |
 | `vmagent` | victoriametrics/vmagent | 8429 | 8429 | Scrape agent + forwarder |
 | `grafana` | grafana/grafana | **3000** | 3000 | Dashboards |
 
@@ -210,7 +211,8 @@ These are internal service UIs exposed directly for operational convenience. The
 
 | URL | Service |
 |-----|---------|
-| http://localhost:8482 | vmstorage — storage stats, retention info |
+| http://localhost:8482 | vmstorage (node 1) — storage stats, retention info |
+| http://localhost:8492 | vmstorage (node 2) — storage stats, retention info |
 | http://localhost:8485 | vminsert — active connections, ingestion rate |
 | http://localhost:8486/vmui | vmselect — VMUI (defaults to no tenant scope) |
 | http://localhost:8429 | vmagent — scrape targets, WAL stats, config |

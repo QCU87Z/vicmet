@@ -1,0 +1,17 @@
+groups:
+  - name: tenant2.app
+    interval: 15s
+    rules:
+      # Alert if any scrape target for tenant2 goes down
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scrape target down ({{ $labels.job }} / {{ $labels.instance }})"
+          description: "Target {{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      # Recording rule — track how many targets are currently up in tenant2
+      - record: job:up:sum
+        expr: sum by (job) (up)

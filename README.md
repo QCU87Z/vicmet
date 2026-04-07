@@ -54,6 +54,9 @@ A Docker Compose deployment of a Victoria Metrics cluster with multi-tenancy, pe
 | `vmstorage` | victoriametrics/vmstorage | 8482 | 8482, 8400, 8401 | Storage node 1 |
 | `vmstorage2` | victoriametrics/vmstorage | 8492 | 8482, 8400, 8401 | Storage node 2 |
 | `vmagent` | victoriametrics/vmagent | 8429 | 8429 | Scrape agent + forwarder |
+| `vmalert-tenant1` | victoriametrics/vmalert | 8880 | 8880 | Alert/recording rules for tenant1 |
+| `vmalert-tenant2` | victoriametrics/vmalert | 8881 | 8880 | Alert/recording rules for tenant2 |
+| `alertmanager` | prom/alertmanager | 9093 | 9093 | Alert routing and notifications |
 | `grafana` | grafana/grafana | **3000** | 3000 | Dashboards |
 
 Ports **8480**, **8481**, and **3000** are the only externally-facing entry points for data traffic. All other ports are either internal-only or direct web UI access.
@@ -201,7 +204,81 @@ This means vmagent's own metrics also pass through authentication, the same as a
 | VictoriaMetrics - cluster | Common | vminsert/vmselect/vmstorage performance |
 | VictoriaMetrics - vmagent | Common | Scrape targets, WAL queue, send rate |
 | VictoriaMetrics - vmauth | Common | Auth request rates, errors per user |
+| VictoriaMetrics - vmalert | Common | Rule evaluation stats, alert states |
 | VictoriaMetrics Cluster Per Tenant Statistic | Common | Per-tenant ingestion and query breakdown |
+
+---
+
+## Alerting
+
+### Architecture
+
+```
+  vmalert-tenant1 ──► alertmanager ──► tenant1-receiver (Slack/PD/webhook)
+  vmalert-tenant2 ──► alertmanager ──► tenant2-receiver (Slack/PD/webhook)
+       │                   ▲
+       │             routes by `tenant` label
+       ▼
+  vmselect (tenant namespace)
+  vminsert (recording rule results written back)
+```
+
+### How multi-tenancy works with vmalert
+
+**One vmalert instance per tenant.** Each instance is completely isolated:
+
+| Instance | Queries from | Writes recording rules to | Tenant label |
+|----------|-------------|--------------------------|--------------|
+| `vmalert-tenant1` | `vmselect:8481/select/1/prometheus` | `vminsert:8480/insert/1/prometheus` | `tenant=tenant1` |
+| `vmalert-tenant2` | `vmselect:8481/select/2/prometheus` | `vminsert:8480/insert/2/prometheus` | `tenant=tenant2` |
+
+Each vmalert is given `--external.label=tenant=<name>`. This label is attached to every alert it fires before sending to alertmanager, which uses it for routing.
+
+**Rule files are isolated per tenant.** Each vmalert mounts only its own rules directory:
+
+```
+config/rules/
+├── tenant1/alerts.yml   ← only mounted into vmalert-tenant1
+└── tenant2/alerts.yml   ← only mounted into vmalert-tenant2
+```
+
+Tenant1 rule authors cannot read, modify, or affect tenant2 rules.
+
+**Recording rules write back into the tenant's own namespace.** A recording rule in tenant1 produces a new metric that is only queryable by tenant1 credentials — it is invisible to tenant2.
+
+### Alertmanager routing
+
+Alertmanager receives alerts from all vmalert instances and routes them by the `tenant` label:
+
+```yaml
+routes:
+  - matchers: [tenant = "tenant1"]
+    receiver: "tenant1-receiver"   # e.g. tenant1's Slack channel / PagerDuty key
+  - matchers: [tenant = "tenant2"]
+    receiver: "tenant2-receiver"
+```
+
+To wire up real notifications, replace the `webhook_configs` in [config/alertmanager.yml](config/alertmanager.yml) with your Slack, PagerDuty, email, or other integration.
+
+### Sample rules
+
+**tenant1** ([config/rules/tenant1/alerts.yml](config/rules/tenant1/alerts.yml)) — node-exporter focused:
+- `NodeExporterDown` — fires if the host node-exporter is unreachable for 1m
+- `HighCpuUsage` — fires if CPU idle drops below 10% for 5m
+- `instance:node_cpu_utilisation:rate5m` — recording rule, pre-computes CPU utilisation
+
+**tenant2** ([config/rules/tenant2/alerts.yml](config/rules/tenant2/alerts.yml)):
+- `TargetDown` — fires if any scrape target in tenant2 is unreachable for 1m
+- `job:up:sum` — recording rule, counts up targets per job
+
+### Adding rules for a tenant
+
+Drop a new `.yml` file into the tenant's rules directory. vmalert hot-reloads on `SIGHUP`:
+
+```bash
+# Add a rule file then reload — no restart needed
+docker compose kill -s SIGHUP vmalert-tenant1
+```
 
 ---
 
@@ -216,6 +293,9 @@ These are internal service UIs exposed directly for operational convenience. The
 | http://localhost:8485 | vminsert — active connections, ingestion rate |
 | http://localhost:8486/vmui | vmselect — VMUI (defaults to no tenant scope) |
 | http://localhost:8429 | vmagent — scrape targets, WAL stats, config |
+| http://localhost:8880 | vmalert tenant1 — rule groups, alert states |
+| http://localhost:8881 | vmalert tenant2 — rule groups, alert states |
+| http://localhost:9093 | alertmanager — active alerts, silences, routing |
 
 ### VMUI per tenant
 

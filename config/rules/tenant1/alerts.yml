@@ -1,0 +1,27 @@
+groups:
+  - name: tenant1.node
+    interval: 15s
+    rules:
+      # Alert if node-exporter target goes down
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node exporter is down (instance {{ $labels.instance }})"
+          description: "node_exporter has been unreachable for more than 1 minute."
+
+      # Alert if CPU idle drops below 10% (system is busy >90%)
+      - alert: HighCpuUsage
+        expr: avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU idle is {{ $value | humanizePercentage }}."
+
+      # Recording rule — pre-compute 5m CPU usage rate into tenant1's namespace
+      - record: instance:node_cpu_utilisation:rate5m
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))

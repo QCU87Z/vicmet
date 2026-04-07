@@ -1,0 +1,40 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "default"
+  group_by: ["alertname", "tenant"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+
+  # Route alerts to tenant-specific receivers based on the tenant label
+  # that vmalert attaches via --external.label=tenant=<name>
+  routes:
+    - matchers:
+        - tenant = "tenant1"
+      receiver: "tenant1-receiver"
+    - matchers:
+        - tenant = "tenant2"
+      receiver: "tenant2-receiver"
+
+receivers:
+  # Default catch-all (e.g. cluster-level alerts with no tenant label)
+  - name: "default"
+    webhook_configs:
+      - url: "http://localhost:5001/webhook"
+        send_resolved: true
+
+  # Tenant 1 — replace webhook with your real integration (Slack, PagerDuty, etc.)
+  - name: "tenant1-receiver"
+    webhook_configs:
+      - url: "http://localhost:5001/webhook"
+        send_resolved: true
+
+  # Tenant 2
+  - name: "tenant2-receiver"
+    webhook_configs:
+      - url: "http://localhost:5001/webhook"
+        send_resolved: true
+
+inhibit_rules: []

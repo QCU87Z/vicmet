@@ -64,6 +64,24 @@ scrape_configs:
       - target_label: vm_account_id
         replacement: "0"
 
+  - job_name: "vmalert"
+    static_configs:
+      - targets: ["vmalert-tenant1:8880", "vmalert-tenant2:8880"]
+        labels:
+          component: "vmalert"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
+
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ["alertmanager:9093"]
+        labels:
+          component: "alertmanager"
+    relabel_configs:
+      - target_label: vm_account_id
+        replacement: "0"
+
   # node_exporter running on the host machine → tenant1 (accountID=1)
   - job_name: "node-exporter"
     static_configs:

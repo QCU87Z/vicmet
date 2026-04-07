@@ -140,6 +140,74 @@ services:
       - vmauth-write
 
   # ──────────────────────────────────────────────────────────────────────────
+  # Alertmanager — single instance, routes alerts by tenant label
+  # ──────────────────────────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "9093:9093"   # Alertmanager UI → http://localhost:9093
+    volumes:
+      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.listen-address=:9093"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # vmalert — one instance per tenant for rule/alert isolation
+  # Each queries its own tenant namespace and writes results back to it.
+  # The --external.label=tenant=<name> flag tags all alerts so alertmanager
+  # can route them to the correct tenant receiver.
+  # ──────────────────────────────────────────────────────────────────────────
+  vmalert-tenant1:
+    image: victoriametrics/vmalert:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8880:8880"   # vmalert tenant1 UI → http://localhost:8880
+    volumes:
+      - ./config/rules/tenant1:/etc/vmalert/rules:ro
+    command:
+      - "--datasource.url=http://vmselect:8481/select/1/prometheus"
+      - "--remoteWrite.url=http://vminsert:8480/insert/1/prometheus"
+      - "--notifier.url=http://alertmanager:9093"
+      - "--rule=/etc/vmalert/rules/*.yml"
+      - "--httpListenAddr=:8880"
+      - "--evaluationInterval=15s"
+      - "--external.label=tenant=tenant1"
+    depends_on:
+      - vmselect
+      - vminsert
+      - alertmanager
+
+  vmalert-tenant2:
+    image: victoriametrics/vmalert:latest
+    restart: unless-stopped
+    networks:
+      - vm-cluster
+    ports:
+      - "8881:8880"   # vmalert tenant2 UI → http://localhost:8881
+    volumes:
+      - ./config/rules/tenant2:/etc/vmalert/rules:ro
+    command:
+      - "--datasource.url=http://vmselect:8481/select/2/prometheus"
+      - "--remoteWrite.url=http://vminsert:8480/insert/2/prometheus"
+      - "--notifier.url=http://alertmanager:9093"
+      - "--rule=/etc/vmalert/rules/*.yml"
+      - "--httpListenAddr=:8880"
+      - "--evaluationInterval=15s"
+      - "--external.label=tenant=tenant2"
+    depends_on:
+      - vmselect
+      - vminsert
+      - alertmanager
+
+  # ──────────────────────────────────────────────────────────────────────────
   # Grafana — pre-configured with one datasource per tenant
   # ──────────────────────────────────────────────────────────────────────────
   grafana:
@@ -168,3 +236,4 @@ volumes:
   vmstorage2-data:
   vmagent-data:
   grafana-data:
+  alertmanager-data:
